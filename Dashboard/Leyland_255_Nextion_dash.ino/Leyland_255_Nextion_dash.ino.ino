@@ -1,11 +1,8 @@
-#include <FlexCAN_T4.h>
+#include <due_can.h>
 #include <Metro.h>
-#include <SoftwareSerial.h>
+//#include <SoftwareSerial.h>
 #include <TinyGPS++.h>
-FlexCAN_T4<CAN0, RX_SIZE_256, TX_SIZE_16> Can0;
-#define NUM_TX_MAILBOXES 6
-#define NUM_RX_MAILBOXES 6
-CAN_message_t msg;
+CAN_FRAME msg;
 
 
 int SOC; // from bms
@@ -20,6 +17,7 @@ int mph;
 int celldelta; // from bms
 int rpm;
 int AuxBattVolt;
+int Batvoltraw;
 
 /// gps stuff
 // Choose two Arduino pins to use for software serial
@@ -32,65 +30,51 @@ int GPSBaud = 9600;
 TinyGPSPlus gps;
 
 // Create a software serial port called "gpsSerial"
-SoftwareSerial gpsSerial(RXPin, TXPin);
+//SoftwareSerial gpsSerial(RXPin, TXPin);
 
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   delay(400);
-  Serial2.begin(9600); // is this ok?
+  Serial2.begin(9600);  // nextion display
   delay(400);
+  Serial3.begin(9600);  // Start the software serial port at the GPS's default baud
+    delay(400);
 
-  // Start the software serial port at the GPS's default baud
-  gpsSerial.begin(GPSBaud);
-  Can0.begin();
-  Can0.setBaudRate(500000);
-  Can0.setMaxMB(NUM_TX_MAILBOXES + NUM_RX_MAILBOXES);
-  for (int i = 0; i < NUM_RX_MAILBOXES; i++) {
-    Can0.setMB(i, RX, STD);
-  }
-  for (int i = NUM_RX_MAILBOXES; i < (NUM_TX_MAILBOXES + NUM_RX_MAILBOXES); i++) {
-    Can0.setMB(i, TX, STD);
-  }
-  //  Can0.setMBFilter(REJECT_ALL);
-  Can0.enableMBInterrupts();
-  //  Can0.setMBFilterProcessing(MB0, 0x3FF, 0xFF);
-  //Can0.setMBFilterProcessing(MB1,0x400, 0xFF);
-  //Can0.setMBFilterProcessing(MB2,0x0B,0xFF);
-  // Can0.enhanceFilter(MB0);
-  //Can0.enhanceFilter(MB1);
-  Can0.onReceive(MB0, canSniff1);
-  //Can0.onReceive(MB1,canSniff2);
-  //Can0.onReceive(MB2,canSniff);
-  Can0.mailboxStatus();
+  Serial.println("Leyland Dash");
+ 
+  Can0.begin(CAN_BPS_500K);
+ 
 }
 
 
-void canSniff1(const CAN_message_t &msg) { //edit for Leaf canbus messages
+void canSniff1() { //edit for Leaf canbus messages
+  
+  Can0.read(msg);
 
   if (msg.id == 0x55A) // from leaf inverter
   {
-    inverT = msg.buf[2];//INVERTER TEMP
-    MotorT = msg.buf[1];//MOTOR TEMP
+    inverT = msg.data.bytes[2];//INVERTER TEMP
+    MotorT = msg.data.bytes[1];//MOTOR TEMP
 
   }
 
   if (msg.id == 0x1DA)  // from leaf inverter
   {
-    rpm = (( msg.buf[4] << 8) | msg.buf[5]);
+    rpm = (( msg.data.bytes[4] << 8) | msg.data.bytes[5]);
   }
 
 
   if (msg.id == 0x355)
   {
-    SOC = (( msg.buf[1] << 8) | msg.buf[0]);
+    SOC = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
     //Serial.println("SIMPBMS");
   }
   if (msg.id == 0x356)//battery voltage from SIMP BMS
   {
 
-    Batvoltraw = (( msg.buf[1] << 8) | msg.buf[0]);
+    Batvoltraw = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
     volt = Batvoltraw / 10;
     //Serial.println("SIMPBMS2");
   }
@@ -162,14 +146,17 @@ void dashupdate() //Run every 500ms or so depending on refreash desired.
 
 void loop() {
   // put your main code here, to run repeatedly:
-  Can0.events();
+  //Can0.events();
   // sending data to nextion display
-
+  if (Can0.available() > 0) {
+    canSniff1();
+  }
 
   // This sketch displays information every time a new sentence is correctly encoded.
-  while (gpsSerial.available() > 0)
-    if (gps.encode(gpsSerial.read()))
+  while (Serial3.available() > 0)
+    if (gps.encode(Serial3.read()))
       mph = gps.speed.mph();
+      Serial.println(mph);
 
   // If 5000 milliseconds pass and there are no characters coming in
   // over the software serial port, show a "No GPS detected" error
