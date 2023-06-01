@@ -1,8 +1,12 @@
+#include "variant.h"
 #include <due_can.h>
 #include <Metro.h>
 //#include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 CAN_FRAME msg;
+
+// CAN frame max data length
+#define MAX_CAN_FRAME_DATA_LEN   8
 
 
 int SOC; // from bms
@@ -48,16 +52,24 @@ void setup() {
   Serial.println("Leyland Dash");
 
   Can0.begin(CAN_BPS_500K);
+
+  int filter;
+  //standard
+  for (int filter = 3; filter < 7; filter++) {
+  Can0.setRXFilter(filter, 0, 0, false);
+  Can1.setRXFilter(filter, 0, 0, false);
+  }  
 }
 
 
 void canSniff1() { //edit for Leaf canbus messages
-
+  
   Can0.read(msg);
 
   if (msg.id == 0x55A) // from leaf inverter
   {
     inverT = msg.data.bytes[2];//INVERTER TEMP
+   // Serial.println(inverT);
     MotorT = msg.data.bytes[1];//MOTOR TEMP
 
   }
@@ -65,6 +77,7 @@ void canSniff1() { //edit for Leaf canbus messages
   if (msg.id == 0x1DA)  // from leaf inverter
   {
     rpm = (( msg.data.bytes[4] << 8) | msg.data.bytes[5]);
+    //Serial.println(rpm);
   }
 
 
@@ -73,6 +86,11 @@ void canSniff1() { //edit for Leaf canbus messages
     SOC = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
     //Serial.println("SIMPBMS");
   }
+  
+  if (msg.id == 0x1DA)//battery voltage from Leaf intverter
+    volt = ((msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
+  
+  /*(
   if (msg.id == 0x356)//battery voltage from SIMP BMS
   {
 
@@ -80,6 +98,7 @@ void canSniff1() { //edit for Leaf canbus messages
     volt = Batvoltraw / 10;
     //Serial.println("SIMPBMS2");
   }
+  */
 
 }
 void dashupdate()
@@ -160,21 +179,25 @@ void gpsupdate()// This sketch displays information every time a new sentence is
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
     Serial.println("No GPS detected");
-    while (true);
+    //while (true);
   }
 
 }
 void loop() {
   // put your main code here, to run repeatedly:
   //Can0.events();
-  // sending data to nextion display
-  // if (Can0.available() > 0) {
-  //   canSniff1();
-  // }
-  if (gpstimer.check())
-  {
-    gpsupdate();
+
+ if (Can0.available() > 0) {
+    canSniff1();
+
   }
+  
+
+ // if (gpstimer.check())
+//  {
+ //   gpsupdate();
+//  }
+  // sending data to nextion display
   dashupdate();
 
 
