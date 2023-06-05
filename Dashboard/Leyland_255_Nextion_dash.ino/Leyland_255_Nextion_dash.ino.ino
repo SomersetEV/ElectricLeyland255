@@ -10,7 +10,7 @@ CAN_FRAME msg;
 
 
 int SOC; // from bms
-int volt; // from bms
+uint16_t volt; // from bms
 //int Batvoltraw;
 int amps; //from isashunt
 int MotorT;
@@ -68,15 +68,16 @@ void canSniff1() { //edit for Leaf canbus messages
 
   if (msg.id == 0x55A) // from leaf inverter
   {
-    inverT = msg.data.bytes[2];//INVERTER TEMP
+    inverT = (msg.data.bytes[2]-32)/1.8;//INVERTER TEMP
    // Serial.println(inverT);
-    MotorT = msg.data.bytes[1];//MOTOR TEMP
+    MotorT = (msg.data.bytes[1]-32)/1.8;//MOTOR TEMP
 
   }
 
   if (msg.id == 0x1DA)  // from leaf inverter
   {
-    rpm = (( msg.data.bytes[4] << 8) | msg.data.bytes[5]);
+    volt = ((uint16_t)msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6);//((uint16_t)((msg.data.bytes[0] << 2) | msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
+    rpm = ((uint16_t)((msg.data.bytes[4] << 8) | msg.data.bytes[5]));
     //Serial.println(rpm);
   }
 
@@ -86,9 +87,7 @@ void canSniff1() { //edit for Leaf canbus messages
     SOC = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
     //Serial.println("SIMPBMS");
   }
-  
-  if (msg.id == 0x1DA)//battery voltage from Leaf intverter
-    volt = ((msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
+    
   
   /*(
   if (msg.id == 0x356)//battery voltage from SIMP BMS
@@ -139,7 +138,7 @@ void dashupdate()
     Serial1.write(0xff);
     Serial1.write(0xff);
     Serial1.print("volt.val=");
-    Serial1.print(volt); //get battery pack voltage
+    Serial1.print(volt/2); //get battery pack voltage
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
