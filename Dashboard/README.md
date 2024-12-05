@@ -2,9 +2,9 @@
 
 Nextion 7 inch display.
 
-Data gathered from canbus using Arduino Due and CANBUS transciever.
+Screen is fed data using an Arduino Due and CANBUS transciever.
 
-For GPS use NEO-6M gps module.
+For GPS use NEO-6M gps module. (Not tested working)
 
 
 
