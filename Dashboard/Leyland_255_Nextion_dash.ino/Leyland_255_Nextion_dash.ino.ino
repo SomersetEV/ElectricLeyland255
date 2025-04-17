@@ -11,7 +11,7 @@ String message;
 
 
 int SOC; // from bms
-uint16_t volt; // from bms
+uint32_t volt; // from isashunt
 //int Batvoltraw;
 int amps; //from isashunt
 int MotorT;
@@ -94,11 +94,15 @@ void canSniff1() { //edit for Leaf canbus messages
   }
 
 
-  if (msg.id == 0x356)//battery voltage from SIMP BMS
+  if (msg.id == 0x522)//battery voltage from isa shunt
   {
-
-    Batvoltraw = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
-    volt = Batvoltraw / 10;
+    uint32_t volt = 
+    ((uint32_t)msg.data.bytes[5] << 24) |
+    ((uint32_t)msg.data.bytes[4] << 16) |
+    ((uint32_t)msg.data.bytes[3] << 8)  |
+    ((uint32_t)msg.data.bytes[2]);
+    //Batvoltraw = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
+    //volt = Batvoltraw / 10;
     //Serial.println("SIMPBMS2");
   }
 
@@ -109,10 +113,14 @@ void canSniff1() { //edit for Leaf canbus messages
     Batmin = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
   }
 
-  if (msg.id == 0x3C3) // highest cell voltage from SIMP BMS
+  if (msg.id == 0x521) // amps from isa shunt
   {
-
-    amps = msg.data.bytes[5] + (msg.data.bytes[4] << 8) + (msg.data.bytes[3] << 16) + (msg.data.bytes[2] << 24);
+    uint32_t amps = 
+    ((uint32_t)msg.data.bytes[5] << 24) |
+    ((uint32_t)msg.data.bytes[4] << 16) |
+    ((uint32_t)msg.data.bytes[3] << 8)  |
+    ((uint32_t)msg.data.bytes[2]);
+    
   }
 
 
