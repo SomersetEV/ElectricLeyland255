@@ -23,8 +23,8 @@ int celldelta; // from bms
 int rpm;
 int AuxBattVolt;
 int Batvoltraw; // from bms
-int Batmax; // from bms
-int Batmin; // from bms
+uint32_t Batmax; // from bms
+uint32_t Batmin; // from bms
 
 
 
@@ -81,8 +81,9 @@ void canSniff1() { //edit for Leaf canbus messages
 
   if (msg.id == 0x1DA)  // from leaf inverter
   {
-    //volt = ((uint16_t)msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6);//((uint16_t)((msg.data.bytes[0] << 2) | msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
+    volt = ((uint16_t)msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6);//((uint16_t)((msg.data.bytes[0] << 2) | msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
     rpm = ((uint16_t)((msg.data.bytes[4] << 8) | msg.data.bytes[5]));
+    rpm = rpm/2;
     //Serial.println(rpm);
   }
 
@@ -96,11 +97,11 @@ void canSniff1() { //edit for Leaf canbus messages
 
   if (msg.id == 0x522)//battery voltage from isa shunt
   {
-    uint32_t volt = 
-    ((uint32_t)msg.data.bytes[5] << 24) |
-    ((uint32_t)msg.data.bytes[4] << 16) |
-    ((uint32_t)msg.data.bytes[3] << 8)  |
-    ((uint32_t)msg.data.bytes[2]);
+   // uint32_t volt = 
+    //((uint32_t)msg.data.bytes[5] << 24) |
+    //((uint32_t)msg.data.bytes[4] << 16) |
+    //((uint32_t)msg.data.bytes[3] << 8)  |
+    //((uint32_t)msg.data.bytes[2]);
     //Batvoltraw = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
     //volt = Batvoltraw / 10;
     //Serial.println("SIMPBMS2");
@@ -109,17 +110,23 @@ void canSniff1() { //edit for Leaf canbus messages
   if (msg.id == 0x373) // highest cell voltage from SIMP BMS
   {
 
-    Batmax = (( msg.data.bytes[3] << 8) | msg.data.bytes[2]);
-    Batmin = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
+    //Batmax = (( msg.data.bytes[3] << 8) | msg.data.bytes[2]);
+    //Batmin = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
   }
 
   if (msg.id == 0x521) // amps from isa shunt
   {
-    uint32_t amps = 
-    ((uint32_t)msg.data.bytes[5] << 24) |
-    ((uint32_t)msg.data.bytes[4] << 16) |
-    ((uint32_t)msg.data.bytes[3] << 8)  |
-    ((uint32_t)msg.data.bytes[2]);
+    //uint8_t* bytes = (uint8_t*)msg.data.bytes;// arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
+   //amps = ((msg.data.bytes[2] << 24) | (msg.data.bytes[3] << 16) | (msg.data.bytes[4] << 8) | (msg.data.bytes[5]));
+   //amps = amps/1000;
+    
+  }
+
+   if (msg.id == 0x6F6) // amps from zombie
+  {
+    //uint8_t* bytes = (uint8_t*)msg.data.bytes;// arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
+   amps = msg.data.bytes[0];
+   
     
   }
 
@@ -149,7 +156,7 @@ void dashupdate()
     Serial1.write(0xff);
     Serial1.write(0xff);
     Serial1.print("amps.val=");
-    Serial1.print(amps);
+    Serial1.print(amps/1000);
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
@@ -232,6 +239,8 @@ void gpsupdate()// This sketch displays information every time a new sentence is
 void dashreturn()//
 {
    kW = volt * amps;
+   Batmax = (volt / 96);
+  Batmin = (volt / 96);
    celldelta = Batmax - Batmin;
 
    
