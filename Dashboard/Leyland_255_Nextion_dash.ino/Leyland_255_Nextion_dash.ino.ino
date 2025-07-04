@@ -241,8 +241,8 @@ void gpsupdate()// This sketch displays information every time a new sentence is
 void dashreturn()//
 {
    kW = volt * amps;
-   Batmax = (volt / 96);
-  Batmin = (volt / 96);
+   Batmax = (volt / 96) * 1000;
+   Batmin = (volt / 96) * 1000;
    celldelta = Batmax - Batmin;
 
    
