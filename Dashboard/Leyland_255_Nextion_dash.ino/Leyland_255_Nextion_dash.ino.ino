@@ -11,14 +11,14 @@ String message;
 
 
 int SOC; // from bms
-uint32_t volt; // from isashunt
-uint32_t rawvolt; // from isashunt
-uint32_t mamps; //from isashunt
+int32_t volt; // from isashunt
+int32_t rawvolt; // from isashunt
+int32_t mamps; //from isashunt
 int amps;
 int MotorT;
 int inverT;
 int Batttemp; // from bms
-uint32_t kW; // calculate from volt and amps
+int32_t kW; // calculate from volt and amps
 int mph;
 int celldelta; // from bms
 int rpm;
@@ -82,9 +82,9 @@ void canSniff1() { //edit for Leaf canbus messages
 
   if (msg.id == 0x1DA)  // from leaf inverter
   {
-    rawvolt = ((uint16_t)msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6);//((uint16_t)((msg.data.bytes[0] << 2) | msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
+    rawvolt = ((int16_t)msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6);//((uint16_t)((msg.data.bytes[0] << 2) | msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
     volt = rawvolt / 2;
-    rpm = ((uint16_t)((msg.data.bytes[4] << 8) | msg.data.bytes[5]));
+    rpm = ((int16_t)((msg.data.bytes[4] << 8) | msg.data.bytes[5]));
     rpm = rpm/2;
     mph = rpm * 0.008;
     Batmax = (volt * 1000) / 96;
@@ -123,11 +123,11 @@ void canSniff1() { //edit for Leaf canbus messages
   {
    //uint8_t* bytes = (uint8_t*)msg.data.bytes;// arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
   // mamps = ((msg.data.bytes[2] << 24) | (msg.data.bytes[3] << 16) | (msg.data.bytes[4] << 8) | (msg.data.bytes[5]));
-   uint8_t* bytes = (uint8_t*)msg.data.bytes;// arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
+   int8_t* bytes = (int8_t*)msg.data.bytes;// arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
    mamps = ((msg.data.bytes[5] << 24) | (msg.data.bytes[4] << 16) | (msg.data.bytes[3] << 8) | (msg.data.bytes[2]));
    mamps = mamps * -1;
    amps = (float)mamps / 100;
-   kW = volt * amps;
+   kW = (volt * amps) / 1000;
     
   }
 
