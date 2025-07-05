@@ -12,13 +12,13 @@ String message;
 
 int SOC; // from bms
 uint32_t volt; // from isashunt
-//int Batvoltraw;
-float mamps; //from isashunt
-float amps;
+uint32_t rawvolt; // from isashunt
+uint32_t mamps; //from isashunt
+int amps;
 int MotorT;
 int inverT;
 int Batttemp; // from bms
-float kW; // calculate from volt and amps
+uint32_t kW; // calculate from volt and amps
 int mph;
 int celldelta; // from bms
 int rpm;
@@ -82,11 +82,14 @@ void canSniff1() { //edit for Leaf canbus messages
 
   if (msg.id == 0x1DA)  // from leaf inverter
   {
-    volt = ((uint16_t)msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6);//((uint16_t)((msg.data.bytes[0] << 2) | msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
+    rawvolt = ((uint16_t)msg.data.bytes[0] << 2) | (msg.data.bytes[1] >> 6);//((uint16_t)((msg.data.bytes[0] << 2) | msg.data.bytes[1] >> 6));//MEASURED VOLTAGE FROM LEAF INVERTER
+    volt = rawvolt / 2;
     rpm = ((uint16_t)((msg.data.bytes[4] << 8) | msg.data.bytes[5]));
     rpm = rpm/2;
     mph = rpm * 0.008;
-    //Serial.println(rpm);
+    Batmax = (volt * 1000) / 96;
+    Batmin = (volt * 1000) / 96;
+    celldelta = Batmax - Batmin;
   }
 
 
@@ -118,9 +121,13 @@ void canSniff1() { //edit for Leaf canbus messages
 
   if (msg.id == 0x521) // amps from isa shunt
   {
+   //uint8_t* bytes = (uint8_t*)msg.data.bytes;// arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
+  // mamps = ((msg.data.bytes[2] << 24) | (msg.data.bytes[3] << 16) | (msg.data.bytes[4] << 8) | (msg.data.bytes[5]));
    uint8_t* bytes = (uint8_t*)msg.data.bytes;// arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
-   mamps = ((msg.data.bytes[2] << 24) | (msg.data.bytes[3] << 16) | (msg.data.bytes[4] << 8) | (msg.data.bytes[5]));
-   amps = mamps/1000;
+   mamps = ((msg.data.bytes[5] << 24) | (msg.data.bytes[4] << 16) | (msg.data.bytes[3] << 8) | (msg.data.bytes[2]));
+   mamps = mamps * -1;
+   amps = (float)mamps / 100;
+   kW = volt * amps;
     
   }
 
@@ -158,7 +165,7 @@ void dashupdate()
     Serial1.write(0xff);
     Serial1.write(0xff);
     Serial1.print("amps.val=");
-    Serial1.print(amps/1000);
+    Serial1.print(amps);
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
@@ -178,7 +185,7 @@ void dashupdate()
     Serial1.write(0xff);
     Serial1.write(0xff);
     Serial1.print("volt.val=");
-    Serial1.print(volt / 2); //get battery pack voltage
+    Serial1.print(volt); //get battery pack voltage
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
@@ -192,7 +199,7 @@ void dashupdate()
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
-    Serial1.print("delta.val = ");
+    Serial1.print("delta.val=");
     Serial1.print(celldelta);//get max cell voltage
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
@@ -203,17 +210,17 @@ void dashupdate()
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
-    Serial1.print("highest.val = ");
+    Serial1.print("highest.val=");
     Serial1.print(Batmax);//get max cell voltage
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
-    Serial1.print("lowest.val = ");
+    Serial1.print("lowest.val=");
     Serial1.print(Batmin);//get max cell voltage
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
-    Serial1.print("volt12v.val = ");
+    Serial1.print("volt12v.val=");
     Serial1.print(AuxBattVolt);//get max cell voltage
     Serial1.write(0xff);  // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
@@ -290,7 +297,7 @@ if (Serial1.available()){ //Is data coming through the serial from the Nextion?
   //  }
   // sending data to nextion display
   dashupdate();
-  dashreturn();
+  //dashreturn();
 
 
 }
