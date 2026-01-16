@@ -4,11 +4,20 @@
 //#include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 CAN_FRAME msg;
+CAN_FRAME txFrame;
 String message;
 
 // CAN frame max data length
 #define MAX_CAN_FRAME_DATA_LEN 8
 
+// Rotary Encoder Inputs
+#define inputCLK 4
+#define inputDT 5
+int counter = 0;
+int currentStateCLK;
+int previousStateCLK;
+String encdir = "";
+const int buttonPin = 2;
 
 int SOC;          // from bms
 int32_t volt;     // from isashunt
@@ -26,6 +35,17 @@ int AuxBattVolt;
 int Batvoltraw;   // from bms
 uint32_t Batmax;  // from bms
 uint32_t Batmin;  // from bms
+
+// Can mapping stuff
+
+int32_t CurrentmaxRPM;
+int32_t TargetmaxRPM = 1800;
+uint8_t CTR1;
+uint8_t CTR2;
+uint8_t CTR3;
+uint8_t CTR4;
+int maxrpmid = 0xF;  //15 in hex from parameter list
+int regenid = 0x3D;  //61 in hex from parameter list
 
 
 
@@ -58,6 +78,13 @@ void setup() {
   Serial.println("Leyland Dash");
 
   Can0.begin(CAN_BPS_500K);
+  // Set encoder pins as inputs
+  pinMode(inputCLK, INPUT);
+  pinMode(inputDT, INPUT);
+  pinMode(buttonPin, INPUT_PULLUP);  // internal pull-up, active LOW
+  // Read the initial state of inputCLK
+  // Assign to previousStateCLK variable
+  previousStateCLK = digitalRead(inputCLK);
 
   int filter;
   //standard
@@ -65,6 +92,12 @@ void setup() {
     Can0.setRXFilter(filter, 0, 0, false);
     Can1.setRXFilter(filter, 0, 0, false);
   }
+
+  txFrame.id = 0x603;    // 11-bit standard ID
+  txFrame.length = 8;    // 0–8 data bytes
+  txFrame.extended = 0;  // 0 = standard, 1 = extended (29-bit)
+  txFrame.rtr = 0;       // 0 = data frame, 1 = remote frame
+  txFrame.priority = 0;  // 0–15, lower = higher priority
 }
 
 
@@ -86,7 +119,6 @@ void canSniff1() {  //edit for Leaf canbus messages
     rpm = ((int16_t)((msg.data.bytes[4] << 8) | msg.data.bytes[5]));
     rpm = rpm / 2;
     mph = rpm * 0.008;
-    
   }
 
 
@@ -215,6 +247,16 @@ void dashupdate() {
     Serial1.write(0xff);         // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
+    Serial1.print("rpmmax.val=");
+    Serial1.print(CurrentmaxRPM);  //send current max RPM
+    Serial1.write(0xff);           // We always have to send this three lines after each command sent to the nextion display.
+    Serial1.write(0xff);
+    Serial1.write(0xff);
+    Serial1.print("rpmtar.val=");
+    Serial1.print(TargetmaxRPM);  //get max cell voltage
+    Serial1.write(0xff);          // We always have to send this three lines after each command sent to the nextion display.
+    Serial1.write(0xff);
+    Serial1.write(0xff);
   }
 }
 
@@ -241,22 +283,51 @@ void dashreturn()  //
 }
 
 void buttonread() {
-  message = Serial1.read();
 
-  if (message[1] == 65) {
-    CAN_FRAME msg1;
-    msg1.id = 0x111;
-    msg1.length = 8;
-    msg1.data.bytes[0] = 1;
-    msg1.data.bytes[1] = 0;
-    msg1.data.bytes[2] = 0;
-    msg1.data.bytes[3] = 0;
-    msg1.data.bytes[4] = 0;
-    msg1.data.bytes[5] = 0;
-    msg1.data.bytes[6] = 0x00;
-    msg1.data.bytes[7] = 0;
-    Can0.sendFrame(msg1);
+  if (CurrentmaxRPM != TargetmaxRPM) {
+    CTR1 = TargetmaxRPM >> 0;
+    CTR2 = TargetmaxRPM >> 8;
+    CTR3 = TargetmaxRPM >> 16;
+    CTR4 = TargetmaxRPM >> 24;
+
+    txFrame.data.bytes[0] = 0x23;
+    txFrame.data.bytes[1] = 0x00;
+    txFrame.data.bytes[2] = 0x21;
+    txFrame.data.bytes[3] = maxrpmid;
+    txFrame.data.bytes[4] = CTR1;
+    txFrame.data.bytes[5] = CTR2;
+    txFrame.data.bytes[6] = CTR3;
+    txFrame.data.bytes[7] = CTR4;
+    Can0.sendFrame(txFrame);
+    CurrentmaxRPM = TargetmaxRPM;
   }
+}
+
+
+void rotarybutton() {
+  // Read the current state of inputCLK
+  currentStateCLK = digitalRead(inputCLK);
+
+  // If the previous and the current state of the inputCLK are different then a pulse has occured
+  if (currentStateCLK != previousStateCLK) {
+
+    // If the inputDT state is different than the inputCLK state then
+    // the encoder is rotating counterclockwise
+    if (digitalRead(inputDT) != currentStateCLK) {
+      counter--;
+      TargetmaxRPM = TargetmaxRPM - 50;
+      encdir = "CCW";
+
+
+    } else {
+      // Encoder is rotating clockwise
+      counter++;
+      TargetmaxRPM = TargetmaxRPM + 50;
+      encdir = "CW";
+    }
+  }
+  // Update previousStateCLK with the current state
+  previousStateCLK = currentStateCLK;
 }
 
 void loop() {
@@ -267,7 +338,7 @@ void loop() {
     canSniff1();
   }
 
-  if (Serial1.available()) {  //Is data coming through the serial from the Nextion?
+  if (digitalRead(buttonPin) == LOW) {
     buttonread();
   }
 
@@ -278,5 +349,6 @@ void loop() {
   //  }
   // sending data to nextion display
   dashupdate();
+  rotarybutton();
   //dashreturn();
 }
