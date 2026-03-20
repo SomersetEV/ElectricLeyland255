@@ -38,7 +38,7 @@ uint32_t Batmin;  // from bms
 
 // Can mapping stuff
 
-int32_t CurrentmaxRPM;
+int32_t CurrentmaxRPM = 1800;
 int32_t TargetmaxRPM = 1800;
 uint8_t CTR1;
 uint8_t CTR2;
@@ -285,6 +285,8 @@ void dashreturn()  //
 void buttonread() {
 
   if (CurrentmaxRPM != TargetmaxRPM) {
+    int32_t fpValue = TargetmaxRPM * 32;  // 1050 → 33600 = 0x00008340
+
     CTR1 = TargetmaxRPM >> 0;
     CTR2 = TargetmaxRPM >> 8;
     CTR3 = TargetmaxRPM >> 16;
@@ -294,10 +296,10 @@ void buttonread() {
     txFrame.data.bytes[1] = 0x00;
     txFrame.data.bytes[2] = 0x21;
     txFrame.data.bytes[3] = maxrpmid;
-    txFrame.data.bytes[4] = CTR1;
-    txFrame.data.bytes[5] = CTR2;
-    txFrame.data.bytes[6] = CTR3;
-    txFrame.data.bytes[7] = CTR4;
+    txFrame.data.bytes[4] = (fpValue >>  0);  // 0x40
+    txFrame.data.bytes[5] = (fpValue >>  8);  // 0x83
+    txFrame.data.bytes[6] = (fpValue >> 16);  // 0x00
+    txFrame.data.bytes[7] = (fpValue >> 24);  // 0x00
     Can0.sendFrame(txFrame);
     CurrentmaxRPM = TargetmaxRPM;
   }
@@ -316,6 +318,9 @@ void rotarybutton() {
     if (digitalRead(inputDT) != currentStateCLK) {
       counter--;
       TargetmaxRPM = TargetmaxRPM - 50;
+      if (TargetmaxRPM < 50){
+        TargetmaxRPM = 50;
+      }
       encdir = "CCW";
 
 
@@ -323,6 +328,9 @@ void rotarybutton() {
       // Encoder is rotating clockwise
       counter++;
       TargetmaxRPM = TargetmaxRPM + 50;
+      if (TargetmaxRPM > 3000){
+        TargetmaxRPM = 3000;
+      }
       encdir = "CW";
     }
   }
