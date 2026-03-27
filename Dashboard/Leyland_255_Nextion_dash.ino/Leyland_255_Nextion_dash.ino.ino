@@ -38,12 +38,8 @@ uint32_t Batmin;  // from bms
 
 // Can mapping stuff
 
-int32_t CurrentmaxRPM;
+int32_t CurrentmaxRPM = 1800;
 int32_t TargetmaxRPM = 1800;
-uint8_t CTR1;
-uint8_t CTR2;
-uint8_t CTR3;
-uint8_t CTR4;
 int maxrpmid = 0xF;  //15 in hex from parameter list
 int regenid = 0x3D;  //61 in hex from parameter list
 
@@ -77,7 +73,13 @@ void setup() {
 
   Serial.println("Leyland Dash");
 
-  Can0.begin(CAN_BPS_500K);
+  // Check CAN init succeeded
+  if (!Can0.begin(CAN_BPS_500K)) {
+    Serial.println("CAN0 init FAILED");
+  } else {
+    Serial.println("CAN0 init OK");
+  }
+
   // Set encoder pins as inputs
   pinMode(inputCLK, INPUT);
   pinMode(inputDT, INPUT);
@@ -285,21 +287,28 @@ void dashreturn()  //
 void buttonread() {
 
   if (CurrentmaxRPM != TargetmaxRPM) {
-    CTR1 = TargetmaxRPM >> 0;
-    CTR2 = TargetmaxRPM >> 8;
-    CTR3 = TargetmaxRPM >> 16;
-    CTR4 = TargetmaxRPM >> 24;
+    int32_t fpValue = TargetmaxRPM * 32;  // fixed-point scaled value (* 32 as per libopeninv)
+
+    Serial.print("Sending SDO: maxrpm = ");
+    Serial.print(TargetmaxRPM);
+    Serial.print("  fpValue = 0x");
+    Serial.println(fpValue, HEX);
 
     txFrame.data.bytes[0] = 0x23;
     txFrame.data.bytes[1] = 0x00;
     txFrame.data.bytes[2] = 0x21;
     txFrame.data.bytes[3] = maxrpmid;
-    txFrame.data.bytes[4] = CTR1;
-    txFrame.data.bytes[5] = CTR2;
-    txFrame.data.bytes[6] = CTR3;
-    txFrame.data.bytes[7] = CTR4;
-    Can0.sendFrame(txFrame);
-    CurrentmaxRPM = TargetmaxRPM;
+    txFrame.data.bytes[4] = (fpValue >>  0);
+    txFrame.data.bytes[5] = (fpValue >>  8);
+    txFrame.data.bytes[6] = (fpValue >> 16);
+    txFrame.data.bytes[7] = (fpValue >> 24);
+
+    if (Can0.sendFrame(txFrame)) {
+      Serial.println("SDO frame sent OK");
+      CurrentmaxRPM = TargetmaxRPM;
+    } else {
+      Serial.println("SDO send FAILED - no TX mailbox available");
+    }
   }
 }
 
@@ -316,6 +325,9 @@ void rotarybutton() {
     if (digitalRead(inputDT) != currentStateCLK) {
       counter--;
       TargetmaxRPM = TargetmaxRPM - 50;
+      if (TargetmaxRPM < 50){
+        TargetmaxRPM = 50;
+      }
       encdir = "CCW";
 
 
@@ -323,6 +335,9 @@ void rotarybutton() {
       // Encoder is rotating clockwise
       counter++;
       TargetmaxRPM = TargetmaxRPM + 50;
+      if (TargetmaxRPM > 3000){
+        TargetmaxRPM = 3000;
+      }
       encdir = "CW";
     }
   }
