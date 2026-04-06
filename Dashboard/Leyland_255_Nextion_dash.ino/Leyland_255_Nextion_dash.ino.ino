@@ -95,7 +95,7 @@ void setup() {
     Can1.setRXFilter(filter, 0, 0, false);
   }
 
-  txFrame.id = 0x603;    // 11-bit standard ID
+  txFrame.id = 0x601;    // 11-bit standard ID
   txFrame.length = 8;    // 0–8 data bytes
   txFrame.extended = 0;  // 0 = standard, 1 = extended (29-bit)
   txFrame.rtr = 0;       // 0 = data frame, 1 = remote frame
