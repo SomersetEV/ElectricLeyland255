@@ -136,16 +136,19 @@ void canSniff1() {  //edit for Leaf canbus messages
     int8_t* bytes = (int8_t*)msg.data.bytes;  // arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
     rawvolt = ((msg.data.bytes[5] << 24) | (msg.data.bytes[4] << 16) | (msg.data.bytes[3] << 8) | (msg.data.bytes[2]));
     volt = rawvolt / 1000;
-    Batmax = (volt * 1000) / 96;
-    Batmin = (volt * 1000) / 96;
+  }
+
+  if (msg.id == 0x373)  // cell min/max from M3BMS (SIMP BMS format)
+  {
+    Batmax = ((msg.data.bytes[3] << 8) | msg.data.bytes[2]);
+    Batmin = ((msg.data.bytes[1] << 8) | msg.data.bytes[0]);
     celldelta = Batmax - Batmin;
   }
 
-  if (msg.id == 0x373)  // highest cell voltage from SIMP BMS
+  if (msg.id == 0x356)  // battery temperature from M3BMS (SIMP BMS format, 0.1°C units)
   {
-
-    //Batmax = (( msg.data.bytes[3] << 8) | msg.data.bytes[2]);
-    //Batmin = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
+    int16_t rawTemp = (int16_t)((msg.data.bytes[5] << 8) | msg.data.bytes[4]);
+    Batttemp = rawTemp / 10;
   }
 
   if (msg.id == 0x521)  // amps from isa shunt
