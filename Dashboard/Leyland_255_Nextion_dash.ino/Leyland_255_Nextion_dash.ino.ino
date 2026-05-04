@@ -123,8 +123,7 @@ void canSniff1() {  //edit for Leaf canbus messages
 
 
   if (msg.id == 0x355) {
-    SOC = ((msg.data.bytes[1] << 8) | msg.data.bytes[0]);
-    //Serial.println("SIMPBMS");
+    SOC = msg.data.bytes[0];
   }
 
 
@@ -134,16 +133,13 @@ void canSniff1() {  //edit for Leaf canbus messages
     int8_t* bytes = (int8_t*)msg.data.bytes;  // arrgghhh this converts the two 32bit array into bytes. See comments are useful:)
     rawvolt = ((msg.data.bytes[5] << 24) | (msg.data.bytes[4] << 16) | (msg.data.bytes[3] << 8) | (msg.data.bytes[2]));
     volt = rawvolt / 1000;
-    Batmax = (volt * 1000) / 96;
-    Batmin = (volt * 1000) / 96;
-    celldelta = Batmax - Batmin;
   }
 
-  if (msg.id == 0x373)  // highest cell voltage from SIMP BMS
+  if (msg.id == 0x373)  // cell min/max from M3BMS (SIMP BMS format)
   {
-
-    //Batmax = (( msg.data.bytes[3] << 8) | msg.data.bytes[2]);
-    //Batmin = (( msg.data.bytes[1] << 8) | msg.data.bytes[0]);
+    Batmax = ((msg.data.bytes[3] << 8) | msg.data.bytes[2]);
+    Batmin = ((msg.data.bytes[1] << 8) | msg.data.bytes[0]);
+    celldelta = Batmax - Batmin;
   }
 
   if (msg.id == 0x521)  // amps from isa shunt
@@ -155,6 +151,12 @@ void canSniff1() {  //edit for Leaf canbus messages
     mamps = mamps * -1;
     amps = (float)mamps / 100;
     kW = (volt * amps) / 1000;
+  }
+
+  if (msg.id == 0x356)  // battery temperature from M3BMS (SIMP BMS format, 0.1°C units)
+  {
+    int16_t rawTemp = (int16_t)((msg.data.bytes[5] << 8) | msg.data.bytes[4]);
+    Batttemp = rawTemp / 10;
   }
 
   if (msg.id == 0x6F6)  // amps from zombie
@@ -296,8 +298,8 @@ void buttonread() {
     txFrame.data.bytes[1] = 0x00;
     txFrame.data.bytes[2] = 0x21;
     txFrame.data.bytes[3] = maxrpmid;
-    txFrame.data.bytes[4] = (fpValue >>  0);  // 0x40
-    txFrame.data.bytes[5] = (fpValue >>  8);  // 0x83
+    txFrame.data.bytes[4] = (fpValue >> 0);   // 0x40
+    txFrame.data.bytes[5] = (fpValue >> 8);   // 0x83
     txFrame.data.bytes[6] = (fpValue >> 16);  // 0x00
     txFrame.data.bytes[7] = (fpValue >> 24);  // 0x00
     Can0.sendFrame(txFrame);
@@ -318,7 +320,7 @@ void rotarybutton() {
     if (digitalRead(inputDT) != currentStateCLK) {
       counter--;
       TargetmaxRPM = TargetmaxRPM - 50;
-      if (TargetmaxRPM < 50){
+      if (TargetmaxRPM < 50) {
         TargetmaxRPM = 50;
       }
       encdir = "CCW";
@@ -328,7 +330,7 @@ void rotarybutton() {
       // Encoder is rotating clockwise
       counter++;
       TargetmaxRPM = TargetmaxRPM + 50;
-      if (TargetmaxRPM > 3000){
+      if (TargetmaxRPM > 3000) {
         TargetmaxRPM = 3000;
       }
       encdir = "CW";
