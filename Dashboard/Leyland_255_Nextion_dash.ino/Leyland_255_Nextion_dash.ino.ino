@@ -26,6 +26,7 @@ int32_t mamps;    //from isashunt
 int amps;
 int MotorT;
 int inverT;
+int ChargerT;
 int Batttemp;  // from bms
 int32_t kW;    // calculate from volt and amps
 int mph;
@@ -126,6 +127,9 @@ void canSniff1() {  //edit for Leaf canbus messages
     SOC = msg.data.bytes[0];
   }
 
+ if (msg.id == 0x33B) { //MG charger temp
+    ChargerT = msg.data.bytes[3] - 40;
+  }
 
   if (msg.id == 0x522)  //battery voltage from isa shunt
   {
@@ -166,10 +170,10 @@ void canSniff1() {  //edit for Leaf canbus messages
   }
 
 
-  if (msg.id == 0x3C5)  // figure out can ID from Zombie for Aux Batt volt
+  if (msg.id == 0x39F)  // Get from MG charger
   {
 
-    AuxBattVolt = msg.data.bytes[5];  // figure this out
+    AuxBattVolt = msg.data.bytes[1] / 8;  
   }
 }
 void dashupdate() {
@@ -240,7 +244,7 @@ void dashupdate() {
     Serial1.write(0xff);
     Serial1.write(0xff);
     Serial1.print("lowest.val=");
-    Serial1.print(Batmin);  //get max cell voltage
+    Serial1.print(Batmin);  //get min cell voltage
     Serial1.write(0xff);    // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
@@ -256,6 +260,11 @@ void dashupdate() {
     Serial1.write(0xff);
     Serial1.print("rpmtar.val=");
     Serial1.print(TargetmaxRPM);  //get max cell voltage
+    Serial1.write(0xff);          // We always have to send this three lines after each command sent to the nextion display.
+    Serial1.write(0xff);
+    Serial1.write(0xff);
+    Serial1.print("ChargerT.val=");
+    Serial1.print(ChargerT);  //charger temp
     Serial1.write(0xff);          // We always have to send this three lines after each command sent to the nextion display.
     Serial1.write(0xff);
     Serial1.write(0xff);
