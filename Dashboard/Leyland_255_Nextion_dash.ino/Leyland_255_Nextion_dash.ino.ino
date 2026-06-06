@@ -128,7 +128,7 @@ void canSniff1() {  //edit for Leaf canbus messages
   }
 
  if (msg.id == 0x33B) { //MG charger temp
-    ChargerT = msg.data.bytes[3] - 50;
+    ChargerT = msg.data.bytes[3] - 40;
   }
 
   if (msg.id == 0x522)  //battery voltage from isa shunt
