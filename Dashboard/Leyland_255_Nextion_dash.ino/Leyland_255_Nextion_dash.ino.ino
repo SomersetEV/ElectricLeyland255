@@ -53,18 +53,11 @@ int regenid = 0x3D;  //61 in hex from parameter list
 Metro dashupdatetimer = Metro(500);
 Metro gpstimer = Metro(100);
 
-/// gps stuff
-// Choose two Arduino pins to use for software serial
-//int RXPin = 2;
-//int TXPin = 3;
-
-int GPSBaud = 9600;
+/// GPS stuff — GY-NEO6MV2 (NEO-6M) on hardware Serial3 (Due pins 14/15)
+int GPSBaud = 9600;  // NEO-6M default baud
 
 // Create a TinyGPS++ object
 TinyGPSPlus gps;
-
-// Create a software serial port called "gpsSerial"
-//SoftwareSerial gpsSerial(RXPin, TXPin);
 
 
 void setup() {
@@ -73,7 +66,7 @@ void setup() {
   delay(400);
   Serial1.begin(9600);  // nextion display
   delay(5000);
-  Serial3.begin(9600);  // Start the software serial port at the GPS's default baud
+  Serial3.begin(GPSBaud);  // NEO-6M GPS on Serial3 (Due pins 14/15) at default baud
   delay(400);
 
   Serial.println("Leyland Dash");
@@ -119,7 +112,7 @@ void canSniff1() {  //edit for Leaf canbus messages
     //volt = rawvolt / 2;
     rpm = ((int16_t)((msg.data.bytes[4] << 8) | msg.data.bytes[5]));
     rpm = rpm / 2;
-    mph = rpm * 0.008;
+    // mph now comes from GPS in gpsupdate(); see fallback there.
   }
 
 
@@ -271,17 +264,21 @@ void dashupdate() {
   }
 }
 
-void gpsupdate()  // This sketch displays information every time a new sentence is correctly encoded.
-{
-  while (Serial3.available() > 0)
 
-    if (gps.encode(Serial3.read())) {
-      mph = gps.speed.mph();
-      Serial.println(mph);
-    }
+void gpsupdate()  // Reads the NEO-6M on Serial3 and sets mph from GPS speed.
+{
+  while (Serial3.available() > 0) {
+    gps.encode(Serial3.read());
+  }
+
+  if (gps.satellites.isValid() && gps.satellites.value() > 0 && gps.speed.isValid()) {
+    mph = gps.speed.mph();        // real speed from GPS
+  } else {
+    mph = rpm * 0.008;            // fallback until GPS has a fix
+  }
+
   if (millis() > 5000 && gps.charsProcessed() < 10) {
-    Serial.println("No GPS detected");
-    //while (true);
+    Serial.println("No GPS detected - check Serial3 wiring (pins 14/15) / baud");
   }
 }
 
@@ -362,10 +359,9 @@ void loop() {
   }
 
 
-  // if (gpstimer.check())
-  //  {
-  //   gpsupdate();
-  //  }
+  if (gpstimer.check()) {
+    gpsupdate();
+  }
   // sending data to nextion display
   dashupdate();
   rotarybutton();
