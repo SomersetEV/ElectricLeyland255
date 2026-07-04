@@ -52,6 +52,11 @@ int regenid = 0x3D;  //61 in hex from parameter list
 
 Metro dashupdatetimer = Metro(500);
 Metro gpstimer = Metro(100);
+Metro candebugtimer = Metro(1000);  // 1 Hz CAN health print to Serial monitor
+
+// CAN debug counters
+volatile uint32_t canFrameCount = 0;  // total frames decoded since boot
+uint32_t canFrameCountLast = 0;       // snapshot for per-second rate
 
 /// GPS stuff — GY-NEO6MV2 (NEO-6M) on hardware Serial3 (Due pins 14/15)
 int GPSBaud = 9600;  // NEO-6M default baud
@@ -98,6 +103,7 @@ void setup() {
 void canSniff1() {  //edit for Leaf canbus messages
 
   Can0.read(msg);
+  canFrameCount++;  // count every decoded frame for CAN health debug
 
   if (msg.id == 0x55A)  // from leaf inverter
   {
@@ -362,6 +368,19 @@ void loop() {
   if (gpstimer.check()) {
     gpsupdate();
   }
+
+  // CAN health debug: once per second, report frame rate and buffer state
+  if (candebugtimer.check()) {
+    uint32_t framesThisSecond = canFrameCount - canFrameCountLast;
+    canFrameCountLast = canFrameCount;
+    Serial.print("CAN rx/s=");
+    Serial.print(framesThisSecond);
+    Serial.print("  total=");
+    Serial.print(canFrameCount);
+    Serial.print("  Can0.available=");
+    Serial.println(Can0.available());
+  }
+
   // sending data to nextion display
   dashupdate();
   rotarybutton();
